@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oásis - Registro de Carrada</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        body { 
+            font-family: 'Inter', sans-serif; 
+            letter-spacing: -0.01em;
+            background-color: #F0F4F8;
+        }
+        .card-shadow { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        #export-container {
+            position: fixed;
+            left: -9999px;
+            top: 0;
+            background: #FFFFFF;
+            width: 500px; 
+            padding: 20px;
+        }
+
+        .modal-overlay {
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(6px);
+        }
+
+        .logo-display {
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const OASIS_LOGO_URL = "https://i.imgur.com/wEozr34.png";
+        
+        const VARIEDADES = ["Syngenta BRO", "Master TSV", "Pharlap", "Jiraya", "Outra"];
+        const BLOCOS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "OUTRO"];
+
+        const SvgIcon = ({ name, className = "w-4 h-4" }) => {
+            const icons = {
+                trash: <><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>,
+                plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
+                camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>,
+                check: <polyline points="20 6 9 17 4 12"/>,
+                share: <><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="22" x2="12" y2="15"/></>,
+                whatsapp: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-11.7 8.38 8.38 0 0 1 3.8.9L21 3.5l-1 4.5z"/>,
+                copy: <><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>,
+                edit: <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name]}
+                </svg>
+            );
+        };
+
+        const getWeekNumber = (d) => {
+            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        };
+
+        function App() {
+            const [registros, setRegistros] = useState([]);
+            const [isExporting, setIsExporting] = useState(false);
+            const [previewData, setPreviewData] = useState(null);
+            const reportRef = useRef(null);
+
+            const [itensCarga, setItensCarga] = useState([{ bloco: '01', variedade: 'Syngenta BRO', caixas: '', outroBloco: '' }]);
+            const [fotoCarga, setFotoCarga] = useState(null);
+            const [infoCarrada, setInfoCarrada] = useState({ carrada: '', status: '' });
+            const [editId, setEditId] = useState(null);
+
+            useEffect(() => {
+                const saved = localStorage.getItem('oasis_brocolis_v2');
+                if (saved) setRegistros(JSON.parse(saved));
+            }, []);
+
+            const save = (data) => {
+                localStorage.setItem('oasis_brocolis_v2', JSON.stringify(data));
+                setRegistros(data);
+            };
+
+            const handleFileChange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => setFotoCarga(reader.result);
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const addRow = () => {
+                setItensCarga([...itensCarga, { bloco: '01', variedade: 'Syngenta BRO', caixas: '', outroBloco: '' }]);
+            };
+
+            const removeRow = (index) => {
+                if (itensCarga.length > 1) {
+                    setItensCarga(itensCarga.filter((_, i) => i !== index));
+                }
+            };
+
+            const updateItem = (index, field, value) => {
+                const newItens = [...itensCarga];
+                newItens[index][field] = value;
+                setItensCarga(newItens);
+            };
+
+            const handleFinalizar = (e) => {
+                e.preventDefault();
+                const hoje = new Date();
+                
+                const novoRegistro = {
+                    id: editId || Date.now(),
+                    data: hoje.toISOString().split('T')[0],
+                    semana: getWeekNumber(hoje),
+                    foto: fotoCarga,
+                    carrada: infoCarrada.carrada || 'N/A',
+                    status: infoCarrada.status || 'N/A',
+                    itens: itensCarga.map(item => ({
+                        bloco: item.bloco === 'OUTRO' ? item.outroBloco : item.bloco,
+                        variedade: item.variedade,
+                        caixas: Number(item.caixas) || 0
+                    })),
+                    totalCaixas: itensCarga.reduce((acc, curr) => acc + (Number(curr.caixas) || 0), 0)
+                };
+
+                let novosRegistros;
+                if (editId) {
+                    novosRegistros = registros.map(r => r.id === editId ? novoRegistro : r);
+                } else {
+                    novosRegistros = [novoRegistro, ...registros];
+                }
+
+                save(novosRegistros);
+                resetForm();
+            };
+
+            const resetForm = () => {
+                setItensCarga([{ bloco: '01', variedade: 'Syngenta BRO', caixas: '', outroBloco: '' }]);
+                setInfoCarrada({ carrada: '', status: '' });
+                setFotoCarga(null);
+                setEditId(null);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            const handleEdit = (reg) => {
+                setEditId(reg.id);
+                setInfoCarrada({ carrada: reg.carrada, status: reg.status });
+                setFotoCarga(reg.foto);
+                setItensCarga(reg.itens.map(it => ({
+                    bloco: BLOCOS.includes(it.bloco) ? it.bloco : 'OUTRO',
+                    variedade: it.variedade,
+                    caixas: it.caixas,
+                    outroBloco: !BLOCOS.includes(it.bloco) ? it.bloco : ''
+                })));
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            const generateJPEG = async () => {
+                if (registros.length === 0) return;
+                setIsExporting(true);
+                setTimeout(async () => {
+                    const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+                    const imgData = canvas.toDataURL('image/jpeg', 0.9);
+                    
+                    const ultimo = registros[0];
+                    const textoResumo = `*OÁSIS - REGISTRO DE CARRADA*\n${new Date().toLocaleDateString('pt-BR')} | Sem: ${ultimo.semana}\n\n*Carrada:* ${ultimo.carrada}\n*Status:* ${ultimo.status}\n\n*Total: ${ultimo.totalCaixas} Caixas*\n${ultimo.itens.map(it => `• Bloco ${it.bloco}: ${it.caixas} cx - [${it.variedade.replace('Syngenta ', '')}]`).join('\n')}`;
+                    
+                    setPreviewData({ image: imgData, text: textoResumo, blob: await (await fetch(imgData)).blob() });
+                    setIsExporting(false);
+                }, 400);
+            };
+
+            const shareToWhatsApp = async () => {
+                if (!previewData) return;
+                const file = new File([previewData.blob], `expedicao_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                if (navigator.share) {
+                    try {
+                        await navigator.share({ text: previewData.text, files: [file] });
+                    } catch (err) {
+                        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(previewData.text)}`, '_blank');
+                    }
+                } else {
+                    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(previewData.text)}`, '_blank');
+                }
+            };
+
+            const copyToClipboard = () => {
+                const el = document.createElement('textarea');
+                el.value = previewData.text;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col pb-10">
+                    <header className="bg-emerald-900 text-white p-6 shadow-2xl border-b-4 border-emerald-500">
+                        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div className="flex items-center gap-4">
+                                <img src={OASIS_LOGO_URL} alt="Logo" className="h-16 logo-display" crossOrigin="anonymous" />
+                                <div>
+                                    <h1 className="text-2xl font-black uppercase tracking-tight leading-none">Fazenda Oásis</h1>
+                                    <p className="text-xs text-emerald-300 font-bold uppercase tracking-[0.2em] mt-1 text-center md:text-left">Registro de Carrada</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <button onClick={generateJPEG} className="bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase flex items-center gap-2 hover:bg-emerald-400 transition-all shadow-lg">
+                                    <SvgIcon name="share" /> {isExporting ? 'Processando...' : 'Exportar Carga'}
+                                </button>
+                                <button onClick={() => confirm("Apagar histórico?") && save([])} className="bg-emerald-800 text-white p-2.5 rounded-xl hover:bg-red-600 transition-colors">
+                                    <SvgIcon name="trash" />
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="max-w-6xl mx-auto w-full p-4 grid lg:grid-cols-[380px_1fr] gap-6 flex-grow">
+                        <aside className="space-y-6">
+                            <div className={`bg-white p-5 rounded-[2rem] card-shadow border transition-all ${editId ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-200'}`}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                                        {editId ? 'Editando Registro' : 'Novo Registro'}
+                                    </h2>
+                                    {editId && (
+                                        <button onClick={resetForm} className="text-[10px] font-black text-amber-600 uppercase">Cancelar</button>
+                                    )}
+                                </div>
+                                <form onSubmit={handleFinalizar} className="space-y-4">
+                                    <div className="relative group overflow-hidden bg-slate-100 rounded-2xl aspect-video border-2 border-dashed border-slate-300 flex flex-col items-center justify-center cursor-pointer transition-all hover:border-emerald-500">
+                                        {fotoCarga ? (
+                                            <>
+                                                <img src={fotoCarga} className="absolute inset-0 w-full h-full object-cover" />
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                    <span className="text-white text-[10px] font-bold uppercase">Trocar Foto</span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="text-center p-4">
+                                                <SvgIcon name="camera" className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                                                <p className="text-[10px] font-black text-slate-400 uppercase">Foto da Carrada</p>
+                                            </div>
+                                        )}
+                                        <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" capture="environment" />
+                                    </div>
+
+                                    {/* Campos de Info Manual */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[8px] font-black text-slate-400 uppercase block mb-1">Carrada</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Ex: 1ª" 
+                                                value={infoCarrada.carrada}
+                                                onChange={e => setInfoCarrada({...infoCarrada, carrada: e.target.value})}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none focus:border-emerald-500 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[8px] font-black text-slate-400 uppercase block mb-1">Status</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Ex: Saiu" 
+                                                value={infoCarrada.status}
+                                                onChange={e => setInfoCarrada({...infoCarrada, status: e.target.value})}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none focus:border-emerald-500 transition-colors"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {itensCarga.map((item, idx) => (
+                                            <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-200 relative group animate-in slide-in-from-top-1">
+                                                <div className="grid grid-cols-2 gap-2 mb-2">
+                                                    <div>
+                                                        <label className="text-[8px] font-bold text-slate-400 uppercase block mb-1">Bloco</label>
+                                                        <select value={item.bloco} onChange={e => updateItem(idx, 'bloco', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-xs font-bold outline-none">
+                                                            {BLOCOS.map(b => <option key={b} value={b}>{b}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[8px] font-bold text-slate-400 uppercase block mb-1">Variedade</label>
+                                                        <select value={item.variedade} onChange={e => updateItem(idx, 'variedade', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-xs font-bold outline-none">
+                                                            {VARIEDADES.map(v => <option key={v} value={v}>{v}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className={item.bloco !== 'OUTRO' ? 'col-span-2' : ''}>
+                                                        <input type="number" placeholder="Caixas" value={item.caixas} onChange={e => updateItem(idx, 'caixas', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-xs font-bold outline-none" required />
+                                                    </div>
+                                                    {item.bloco === 'OUTRO' && (
+                                                        <input type="text" placeholder="Qual?" value={item.outroBloco} onChange={e => updateItem(idx, 'outroBloco', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-xs font-bold outline-none" />
+                                                    )}
+                                                </div>
+                                                {itensCarga.length > 1 && (
+                                                    <button type="button" onClick={() => removeRow(idx)} className="absolute -top-2 -right-2 bg-white text-red-500 p-1 rounded-full border border-slate-200 shadow-sm"><SvgIcon name="trash" className="w-3 h-3"/></button>
+                                                )}
+                                            </div>
+                                        ))}
+                                        <button type="button" onClick={addRow} className="w-full border-2 border-dashed border-slate-200 py-2 rounded-xl text-slate-400 text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-50">
+                                            <SvgIcon name="plus" /> Adicionar Bloco
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-emerald-900 p-4 rounded-2xl text-center shadow-inner">
+                                        <p className="text-[9px] font-black text-emerald-400 uppercase mb-1">Total Atual</p>
+                                        <p className="text-3xl font-black text-white leading-none">
+                                            {itensCarga.reduce((acc, curr) => acc + (Number(curr.caixas) || 0), 0)} Cx
+                                        </p>
+                                    </div>
+
+                                    <button type="submit" className={`w-full text-white py-3.5 rounded-xl font-black uppercase text-xs shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${editId ? 'bg-amber-600' : 'bg-emerald-600'}`}>
+                                        <SvgIcon name={editId ? 'edit' : 'check'} /> {editId ? 'Salvar Alterações' : 'Finalizar Registro'}
+                                    </button>
+                                </form>
+                            </div>
+                        </aside>
+
+                        <section className="space-y-4">
+                            {registros.length === 0 ? (
+                                <div className="bg-white p-16 rounded-[2rem] border-2 border-dashed border-slate-200 text-center text-slate-300 font-black uppercase text-[10px] tracking-widest">Sem carradas hoje</div>
+                            ) : (
+                                registros.map(reg => (
+                                    <div key={reg.id} className={`bg-white rounded-[1.5rem] p-4 card-shadow border flex flex-col md:flex-row gap-4 items-start animate-in fade-in slide-in-from-bottom-2 ${editId === reg.id ? 'border-amber-400 ring-4 ring-amber-50' : 'border-slate-100'}`}>
+                                        {reg.foto && <img src={reg.foto} className="w-full md:w-32 h-32 md:h-full object-cover rounded-xl border border-slate-100 shrink-0" />}
+                                        <div className="flex-grow w-full">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                        <span className="bg-emerald-100 text-emerald-700 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase">Semana {reg.semana}</span>
+                                                        <span className="bg-slate-100 text-slate-600 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase">Carrada: {reg.carrada}</span>
+                                                        <span className="bg-blue-100 text-blue-700 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase">Status: {reg.status}</span>
+                                                        <span className="text-[10px] font-black text-slate-400 uppercase ml-auto">{reg.data.split('-').reverse().join('/')}</span>
+                                                    </div>
+                                                    <p className="text-lg font-black text-slate-800 leading-none">{reg.totalCaixas} Caixas na Carga</p>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    <button onClick={() => handleEdit(reg)} className="text-slate-300 hover:text-amber-500 transition-colors p-2 rounded-lg hover:bg-amber-50">
+                                                        <SvgIcon name="edit" className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => save(registros.filter(r => r.id !== reg.id))} className="text-slate-300 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50">
+                                                        <SvgIcon name="trash" className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                {reg.itens.map((it, i) => (
+                                                    <div key={i} className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                                                        <p className="text-[8px] font-bold text-slate-400 uppercase mb-0.5">B{it.bloco}</p>
+                                                        <p className="text-[10px] font-black text-slate-700 truncate">{it.variedade}</p>
+                                                        <p className="text-xs font-black text-emerald-600 mt-0.5">{it.caixas} cx</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </section>
+                    </main>
+
+                    {previewData && (
+                        <div className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setPreviewData(null)}>
+                            <div className="bg-white rounded-[2.5rem] p-5 max-w-sm w-full animate-in zoom-in-95 duration-200 my-auto" onClick={e => e.stopPropagation()}>
+                                <div className="text-center mb-4">
+                                    <h3 className="font-black uppercase text-xs text-slate-400 tracking-widest">Resumo para WhatsApp</h3>
+                                </div>
+                                <img src={previewData.image} className="w-full rounded-2xl shadow-lg border border-slate-100 mb-4" />
+                                <div className="bg-slate-50 rounded-2xl p-4 mb-4 border border-slate-100 relative group">
+                                    <button onClick={copyToClipboard} className="absolute top-3 right-3 text-slate-300 group-hover:text-emerald-500 transition-colors">
+                                        <SvgIcon name="copy" className="w-4 h-4"/>
+                                    </button>
+                                    <pre className="text-[11px] font-bold text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">
+                                        {previewData.text}
+                                    </pre>
+                                </div>
+                                <div className="flex flex-col gap-3">
+                                    <button onClick={shareToWhatsApp} className="w-full py-4 font-black uppercase text-xs text-white bg-emerald-600 rounded-2xl shadow-xl shadow-emerald-100 flex items-center justify-center gap-3">
+                                        <SvgIcon name="whatsapp" className="w-5 h-5 fill-white"/> Compartilhar WhatsApp
+                                    </button>
+                                    <button onClick={() => setPreviewData(null)} className="w-full py-3 font-black uppercase text-[10px] text-slate-400 hover:text-slate-600 transition-colors">Fechar</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div id="export-container" ref={reportRef}>
+                        <div className="bg-white p-6">
+                            <div className="flex items-center justify-between mb-6 border-b-4 border-emerald-900 pb-6">
+                                <div className="flex items-center gap-4">
+                                    <img src={OASIS_LOGO_URL} className="h-20 logo-display" crossOrigin="anonymous" />
+                                    <div>
+                                        <h1 className="text-2xl font-black text-emerald-900 leading-none uppercase tracking-tighter">Fazenda Oásis</h1>
+                                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.3em]">Registro de Carrada</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">Semana {getWeekNumber(new Date())}</p>
+                                    <p className="text-sm font-black text-slate-800 uppercase">{new Date().toLocaleDateString('pt-BR')}</p>
+                                </div>
+                            </div>
+                            {registros.slice(0, 1).map(reg => (
+                                <div key={reg.id} className="space-y-6">
+                                    <div className="bg-emerald-900 p-6 rounded-2xl text-center shadow-lg">
+                                        <div className="flex justify-center gap-4 mb-2">
+                                            <span className="text-[9px] font-black text-emerald-200 uppercase">Carrada: {reg.carrada}</span>
+                                            <span className="text-[9px] font-black text-emerald-200 uppercase">Status: {reg.status}</span>
+                                        </div>
+                                        <p className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.2em] mb-2">Volume Total da Carga</p>
+                                        <p className="text-6xl font-black text-white">{reg.totalCaixas} CX</p>
+                                    </div>
+                                    {reg.foto && (
+                                        <div className="rounded-2xl overflow-hidden border-2 border-slate-100 shadow-sm">
+                                            <img src={reg.foto} className="w-full h-64 object-cover" crossOrigin="anonymous" />
+                                        </div>
+                                    )}
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {reg.itens.map((it, i) => (
+                                            <div key={i} className="bg-slate-50 p-4 rounded-xl flex justify-between items-center border border-slate-100">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-700 font-black text-sm">
+                                                        {it.bloco}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Variedade</p>
+                                                        <p className="text-sm font-black text-slate-800">{it.variedade}</p>
+                                                    </div>
+                                                </div>
+                                                <p className="text-2xl font-black text-emerald-700">{it.caixas} <span className="text-[10px]">cx</span></p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="pt-4 text-center border-t border-slate-100">
+                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest italic">Documento gerado pelo Sistema de Expedição Oásis</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
