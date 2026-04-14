@@ -25,7 +25,7 @@
             top: 0;
             background: #FFFFFF;
             width: 500px; 
-            padding: 20px;
+            padding: 0;
         }
 
         .modal-overlay {
@@ -260,7 +260,6 @@
                                         <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" capture="environment" />
                                     </div>
 
-                                    {/* Campos de Info Manual */}
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
                                             <label className="text-[8px] font-black text-slate-400 uppercase block mb-1">Carrada</label>
@@ -379,9 +378,6 @@
                     {previewData && (
                         <div className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setPreviewData(null)}>
                             <div className="bg-white rounded-[2.5rem] p-5 max-w-sm w-full animate-in zoom-in-95 duration-200 my-auto" onClick={e => e.stopPropagation()}>
-                                <div className="text-center mb-4">
-                                    <h3 className="font-black uppercase text-xs text-slate-400 tracking-widest">Resumo para WhatsApp</h3>
-                                </div>
                                 <img src={previewData.image} className="w-full rounded-2xl shadow-lg border border-slate-100 mb-4" />
                                 <div className="bg-slate-50 rounded-2xl p-4 mb-4 border border-slate-100 relative group">
                                     <button onClick={copyToClipboard} className="absolute top-3 right-3 text-slate-300 group-hover:text-emerald-500 transition-colors">
@@ -403,52 +399,44 @@
 
                     <div id="export-container" ref={reportRef}>
                         <div className="bg-white p-6">
-                            <div className="flex items-center justify-between mb-6 border-b-4 border-emerald-900 pb-6">
+                            <div className="flex items-center justify-between mb-8 border-b-4 border-emerald-900 pb-6">
                                 <div className="flex items-center gap-4">
-                                    <img src={OASIS_LOGO_URL} className="h-20 logo-display" crossOrigin="anonymous" />
+                                    <img src={OASIS_LOGO_URL} className="h-24 logo-display" crossOrigin="anonymous" />
                                     <div>
-                                        <h1 className="text-2xl font-black text-emerald-900 leading-none uppercase tracking-tighter">Fazenda Oásis</h1>
-                                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.3em]">Registro de Carrada</p>
+                                        <h1 className="text-3xl font-black text-emerald-900 leading-none uppercase tracking-tighter">Fazenda Oásis</h1>
+                                        <p className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.3em] mt-1">Expedição e Logística</p>
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">Semana {getWeekNumber(new Date())}</p>
-                                    <p className="text-sm font-black text-slate-800 uppercase">{new Date().toLocaleDateString('pt-BR')}</p>
+                                    <p className="text-base font-black text-slate-800 uppercase">{new Date().toLocaleDateString('pt-BR')}</p>
                                 </div>
                             </div>
+                            
                             {registros.slice(0, 1).map(reg => (
-                                <div key={reg.id} className="space-y-6">
-                                    <div className="bg-emerald-900 p-6 rounded-2xl text-center shadow-lg">
-                                        <div className="flex justify-center gap-4 mb-2">
-                                            <span className="text-[9px] font-black text-emerald-200 uppercase">Carrada: {reg.carrada}</span>
-                                            <span className="text-[9px] font-black text-emerald-200 uppercase">Status: {reg.status}</span>
+                                <div key={reg.id} className="space-y-8">
+                                    <div className="bg-emerald-900 p-8 rounded-[2.5rem] text-center shadow-xl">
+                                        <div className="flex justify-center gap-6 mb-3">
+                                            <span className="bg-emerald-800 text-emerald-100 text-[10px] font-black px-3 py-1 rounded-full uppercase">CARRADA: {reg.carrada}</span>
+                                            <span className="bg-emerald-800 text-emerald-100 text-[10px] font-black px-3 py-1 rounded-full uppercase">STATUS: {reg.status}</span>
                                         </div>
-                                        <p className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.2em] mb-2">Volume Total da Carga</p>
-                                        <p className="text-6xl font-black text-white">{reg.totalCaixas} CX</p>
+                                        <p className="text-[12px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-2">Volume Total Carregado</p>
+                                        <div className="flex items-center justify-center gap-2">
+                                            <p className="text-8xl font-black text-white leading-none">{reg.totalCaixas}</p>
+                                            <p className="text-2xl font-black text-emerald-400 self-end mb-2">CAIXAS</p>
+                                        </div>
                                     </div>
+
                                     {reg.foto && (
-                                        <div className="rounded-2xl overflow-hidden border-2 border-slate-100 shadow-sm">
-                                            <img src={reg.foto} className="w-full h-64 object-cover" crossOrigin="anonymous" />
+                                        <div className="rounded-[2.5rem] overflow-hidden border-4 border-slate-50 shadow-2xl">
+                                            <img src={reg.foto} className="w-full h-[400px] object-cover" crossOrigin="anonymous" />
                                         </div>
                                     )}
-                                    <div className="grid grid-cols-1 gap-3">
-                                        {reg.itens.map((it, i) => (
-                                            <div key={i} className="bg-slate-50 p-4 rounded-xl flex justify-between items-center border border-slate-100">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-700 font-black text-sm">
-                                                        {it.bloco}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Variedade</p>
-                                                        <p className="text-sm font-black text-slate-800">{it.variedade}</p>
-                                                    </div>
-                                                </div>
-                                                <p className="text-2xl font-black text-emerald-700">{it.caixas} <span className="text-[10px]">cx</span></p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="pt-4 text-center border-t border-slate-100">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest italic">Documento gerado pelo Sistema de Expedição Oásis</p>
+
+                                    <div className="pt-8 text-center border-t border-slate-100">
+                                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] italic leading-relaxed">
+                                            Documento de Registro Interno
+                                        </p>
                                     </div>
                                 </div>
                             ))}
