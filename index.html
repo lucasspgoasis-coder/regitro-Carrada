@@ -33,8 +33,18 @@
             backdrop-filter: blur(6px);
         }
 
-        .logo-display {
-            object-fit: contain;
+        /* Estilo Flashcard solicitado */
+        .flashcard-header {
+            background-color: #000000;
+            border: 2px solid #64748b; /* Contorno cinza */
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
         }
     </style>
 </head>
@@ -53,7 +63,7 @@
             const icons = {
                 trash: <><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>,
                 plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
-                camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>,
+                image: <><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></>,
                 check: <polyline points="20 6 9 17 4 12"/>,
                 share: <><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="22" x2="12" y2="15"/></>,
                 whatsapp: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-11.7 8.38 8.38 0 0 1 3.8.9L21 3.5l-1 4.5z"/>,
@@ -179,7 +189,7 @@
                     const imgData = canvas.toDataURL('image/jpeg', 0.9);
                     
                     const ultimo = registros[0];
-                    const textoResumo = `*OÁSIS - REGISTRO DE CARRADA*\n${new Date().toLocaleDateString('pt-BR')} | Sem: ${ultimo.semana}\n\n*Carrada:* ${ultimo.carrada}\n*Status:* ${ultimo.status}\n\n*Total: ${ultimo.totalCaixas} Caixas*\n${ultimo.itens.map(it => `• Bloco ${it.bloco}: ${it.caixas} cx - [${it.variedade.replace('Syngenta ', '')}]`).join('\n')}`;
+                    const textoResumo = `Bom Dia Pessoal !!!\n\n*OÁSIS - REGISTRO DE CARRADA*\nData: ${new Date().toLocaleDateString('pt-BR')} | Sem: ${ultimo.semana}\n\n*Carrada:* ${ultimo.carrada}\n*Status:* ${ultimo.status}\n\n*Total:* ${ultimo.totalCaixas} Caixas\n${ultimo.itens.map(it => `*Bloco* ${it.bloco}: ${it.caixas} cx [${it.variedade.replace('Syngenta ', '')}]`).join('\n')}`;
                     
                     setPreviewData({ image: imgData, text: textoResumo, blob: await (await fetch(imgData)).blob() });
                     setIsExporting(false);
@@ -243,21 +253,23 @@
                                     )}
                                 </div>
                                 <form onSubmit={handleFinalizar} className="space-y-4">
+                                    {/* Botão de Upload da Galeria */}
                                     <div className="relative group overflow-hidden bg-slate-100 rounded-2xl aspect-video border-2 border-dashed border-slate-300 flex flex-col items-center justify-center cursor-pointer transition-all hover:border-emerald-500">
                                         {fotoCarga ? (
                                             <>
                                                 <img src={fotoCarga} className="absolute inset-0 w-full h-full object-cover" />
                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                                    <span className="text-white text-[10px] font-bold uppercase">Trocar Foto</span>
+                                                    <span className="text-white text-[10px] font-bold uppercase">Trocar Imagem</span>
                                                 </div>
                                             </>
                                         ) : (
                                             <div className="text-center p-4">
-                                                <SvgIcon name="camera" className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                                                <p className="text-[10px] font-black text-slate-400 uppercase">Foto da Carrada</p>
+                                                <SvgIcon name="image" className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                                                <p className="text-[10px] font-black text-slate-400 uppercase">Selecionar da Galeria</p>
                                             </div>
                                         )}
-                                        <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" capture="environment" />
+                                        {/* Removido capture="environment" para permitir acesso à galeria */}
+                                        <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-3">
@@ -383,8 +395,14 @@
                                     <button onClick={copyToClipboard} className="absolute top-3 right-3 text-slate-300 group-hover:text-emerald-500 transition-colors">
                                         <SvgIcon name="copy" className="w-4 h-4"/>
                                     </button>
+                                    
+                                    {/* Flashcard Style */}
+                                    <div className="flashcard-header mb-3">
+                                         OÁSIS - REGISTRO DE CARRADA
+                                    </div>
+
                                     <pre className="text-[11px] font-bold text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">
-                                        {previewData.text}
+                                        {previewData.text.split('\n\n').slice(1).join('\n\n')}
                                     </pre>
                                 </div>
                                 <div className="flex flex-col gap-3">
